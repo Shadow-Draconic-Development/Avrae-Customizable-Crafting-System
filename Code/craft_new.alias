@@ -1,0 +1,148 @@
+embed
+<drac2>
+
+
+def set_default_settings(dictionary: dict, default_dictionary: dict) -> dict:
+    """
+    Loops through dictionary checking for missing entries and adding default ones where necessary
+
+    Args:
+        dictionary (dict): Dictionary to be checked
+        default_dictionary (dict): Default dictionary
+
+    Return:
+        dict: Corrected dictionary
+    """
+
+    # For each key in the default dictionary
+    for default_key in default_dictionary.keys():
+
+        # If the value is not a dictionary
+        if typeof(default_dictionary[default_key]) != "SafeDict":
+
+            if default_key in dictionary.keys():
+                pass
+
+            else:
+                dictionary[default_key] = default_dictionary[default_key]
+
+        # If the value is a dictionary
+        else:
+
+            # Check to see if it is a threshold dictionary
+            try:
+                for test_key in default_dictionary[default_key].keys():
+                    float(test_key)
+
+                if default_key in dictionary.keys():
+                    pass
+
+                else:
+                    dictionary[default_key] = default_dictionary[default_key]
+
+            # If it is not a threshold dictionary, run recursive call to check values of inner dictionary
+            except:
+                dictionary[default_key] = set_default_settings(dictionary[default_key], default_dictionary[default_key]) 
+
+    return dictionary
+
+
+    def check_channel(svar_dict: dict) -> bool:
+        if len(channel_list := svar_dict["whitelisted_channel_ids"]) == 0:
+            return True
+
+        else:
+            if ctx.channel.id in channel_list:
+                return True
+
+            else:
+                if (parent_obj := ctx.channel.parent):
+                    if svar_dict["parent_channel_inherit"] and parent_obj.id in channel_list:
+                        return True
+
+                    else:
+                        return False
+
+                else:
+                    return False
+
+
+
+def main(input_list: list[str]) -> tuple(str, str, str, str):
+    """
+    
+    
+    """
+
+    svar_dict_default = {
+        "lfg_integration": False,
+        "pro_rate_refund": True,
+        "success_dispType": "star",
+        "failure_dispType": "hex",
+        "jack_of_trades": True,
+        "reliable_talent": False,
+        "success_mod_threshold": {
+            "-999": 1,
+            "5": 2,
+            "10": 3,
+            "15": 4,
+            "20": 5
+            }, 
+        "whitelisted_channel_ids": [], 
+        "parent_channel_inherit": False, 
+        "xp_categories": False, 
+        "max_history": 15
+    }
+
+
+    crafting_nonmagical_defaults = {
+        "nonmagical": {"0": [5, 8, -1, 5, 1, 1, 7200, "#242528"]
+            "101": [9, 13, -2, 5, 5, 2, 14400, "#242528"],
+            "501": [13, 18, -3, 5, 8, 3, 21600, "#242528"],
+            "5001": [17, 23, -4, 5, 13, 4, 28800, "#242528"],
+            "50001": [20, 25, -5, 5, 20, 5, 36000, "#242528"]
+        }
+    }
+
+    # If SVAR exists, load dictionary
+    if (svar_test := get_svar('crafting_settings')):
+        svar_dict = set_default_settings(load_json(svar_test), svar_dict_default)
+
+        # If there is at least one item category
+        if len(svar_dict) > 11:
+            pass
+
+        # If there are no item categories
+        else:
+            svar_dict.update(crafting_nonmagical_defaults)
+
+    # If SVAR does not exist, create dictionary via unpacking
+    else:
+        svar_dict = {**svar_dict_default, **crafting_nonmagical_defaults}
+        
+
+    # If channel is a valid channel, load character object
+    if check_channel(svar_dict):
+        ch = character()
+
+    else:
+        return "You Have Been Sneak Attacked by an Error", ""
+    
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</drac2>
