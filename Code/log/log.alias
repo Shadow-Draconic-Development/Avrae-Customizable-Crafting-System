@@ -1,91 +1,110 @@
 embed
 <drac2>
+# *******************************************************
+# * This work includes material written by Seth Hartman (aka ShadowsStride)
+# * and is licensed under the Creative Commons Attribution 4.0 International License 
+# * available at https://creativecommons.org/licenses/by/4.0/legalcode.
+# *******************************************************
 
-def main(ch = character()):
 
+def main() -> tuple[str]:
+    """
+    Main program function
 
-    # Image urls
-    error_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/error.png"
-    fail_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/fail.png"
-    hammer_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/hammer.png"
-    main_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/image.png"
+    Return:
+        str: Title
+        str: Main body paragraph
+        str: Image URL
+        str: Hex color code
+    """
 
-    if ch.cc_exists('Crafting: Successes') and ch.cc_exists('Crafting: Failures'):
-        crafting_dictionary = load_json(ch.get_cvar('crafting_dict'))
+    # Error image and server prefix
+    error_img = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/error.png"
+    prefix = ctx.prefix
 
-        success_counter = ch.cc('Crafting: Successes')
-        failure_counter = ch.cc('Crafting: Failures')
+    # Load character 
+    try:
+        ch = character()
 
-        result_string = []
+    # If no character is selected
+    except:
+        return "You Have Been Sneak Attacked by an Error", "You must have a character selected", error_img, "#CF142B"
 
-        # Success counter
-        result_string.append(f"Successes: {success_counter.value}/{success_counter.max}")
+    # Check to see if crafting CCs exist
+    if ch.cc_exists("Crafting: Successes") and ch.cc_exists("Crafting: Failures"):
 
-        if f"{success_counter.value}/{success_counter.max}" == ch.cc_str('Crafting: Successes'):
-            pass
-        else:
-            result_string.append(ch.cc_str('Crafting: Successes'))
-
-        # Failure counter
-        result_string.append(f"Failures: {failure_counter.value}/{failure_counter.max}")
-
-        if f"{failure_counter.value}/{failure_counter.max}" == ch.cc_str('Crafting: Failures'):
-            pass
-        else:
-            result_string.append(ch.cc_str('Crafting: Failures'))
-
-        # If failure counter at max
-        if failure_counter.value == failure_counter.max:
-            result_string.append("")
-            result_string.append(f"Maximum failures reached for a {crafting_dictionary['name']}! Please run `!craft clear` as you have ruined your materials.")
-            img_url = fail_img
-
-        # If success counter at max
-        elif success_counter.value == success_counter.max:
-            result_string.append("")
-            result_string.append(f"You have finished crafting a {crafting_dictionary['name']}! Please run `!craft clear` as you have finished your item.")
-            img_url = hammer_img
-
-        else:
-            img_url = main_img
-
-        # If bypass was used
-        if crafting_dictionary['bypass']:
-            result_string.append("")
-            result_string.append('`BYPASS USED`')
-        else:
-            pass
-
+        # Try to load crafting dictionary
         try:
-            color = crafting_dictionary['color']
+            crafting_dict = load_json(ch.get_cvar("crafting_dict"))
 
+        # If, for some reason, the crafting dictionary doesn't load properly
         except:
-            color = ""
+            return "You Have Been Sneak Attacked by an Error", "Alias disconnect has occurred. Please delete the following CCs:\nCrafting: Successes\nCrafting: Failures", error_img, "#CF142B"
 
+        # Load crafting CCs
+        success_cc = ch.cc("Crafting: Successes")
+        failure_cc = ch.cc("Crafting: Failures")
 
-        try:
-            if crafting_dictionary['backup']['success_cc'][0] != crafting_dictionary['backup']['success_cc'][1] and crafting_dictionary['backup']['failure_cc'][0] != crafting_dictionary['backup']['failure_cc'][1]:
-                result_string.append(f"`Item in backup: {crafting_dictionary['backup']['cvar'][0]}`")
-
-            else:
-                pass
-
-        except:
-            pass
-
-        return [f'({ctx.author.display_name}) {name} checks their Crafting progress with their {crafting_dictionary["name"]}', "\n".join(result_string), img_url, color]
-
+    # If crafting CCs do not exist
     else:
-        return [f'({ctx.author.display_name}) {name} checks their Crafting progress', 'No crafting project in-progress', error_img, '#CC0202']
+        return "You Have Been Sneak Attacked by an Error", "No crafting project in progress", error_img, "#CF142B"
+
+    # Load success CC details
+    result_string = [f"Successes: {success_cc.value}/{success_cc.max}"]
+
+    # Check to see if the success CC matches an already added CC details
+    if f"{success_cc.value}/{success_cc.max}" != (success_cc_str := ch.cc_str("Crafting: Successes")):
+        result_string.append(success_cc_str)
+
+    # Load failure CC details
+    result_string.append(f"Failures: {failure_cc.value}/{failure_cc.max}")
+    
+    # Check to see if the failure CC matches an already added CC details
+    if f"{failure_cc.value}/{failure_cc.max}" != (failure_cc_str := ch.cc_str("Crafting: Failures")):
+        result_string.append(failure_cc_str)
+
+    # If maximum failures were reached
+    if failure_cc.value == failure_cc.max:
+        result_string.append(f"\nMaximum failures reached for a {crafting_dict['name']}! Please run `{prefix}craft clear` as you have ruined your materials.")
+        img_url = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/error.png"
+
+    # If minimum successes were reached
+    elif success_cc.value == success_cc.max:
+        result_string.append(f"\nYou have finished crafting a {crafting_dict['name']}! Please run `{prefix}craft clear` as you have finished your item.")
+        img_url = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/hammer.png"
+
+    # If neither were reached
+    else:
+        img_url = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/main.png"
+
+    # If bypass was used
+    if crafting_dict["bypass"]:
+        result_string.append("\n`BYPASS USED`")
+
+    # Legacy check for color
+    try:
+        color = crafting_dict["color"]
+
+    except:
+        color = color
+
+    # If there is a backup
+    if "backup" in crafting_dict:
+
+        # Check to see if there is a backup that can be restored (will just be displayed)
+        if crafting_dict["backup"]["success_cc"][0] != crafting_dict["backup"]["success_cc"][1] and crafting_dict["backup"]["failure_cc"][0] != crafting_dict["backup"]["failure_cc"][1]:
+            result_string.append(f"`Item in backup: {crafting_dict['backup']['cvar'][0]}`")
+
+    return f"{name} Checks Their Crafting Progress With Their {crafting_dict['name']}", "\n".join(result_string), img_url, color
         
 
 # Main program
-output_list = main()
+title, f, thumb, color = main()
 
 
 </drac2>
--title "{{output_list[0]}}"
--f "{{output_list[1]}}"
--thumb "{{output_list[2]}}"
--color "{{output_list[3]}}"
--footer "!craft log | Updated 7/21/23 | ShadowsStride"
+-title "{{title}}"
+-f "{{f}}"
+-thumb "{{thumb}}"
+-color "{{color}}"
+-footer "{{ctx.prefix}}craft log | 4/5/26 | ShadowsStride"

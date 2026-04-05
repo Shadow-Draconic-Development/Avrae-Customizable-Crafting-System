@@ -53,7 +53,50 @@ def multiple_match_determine(search_result: list[str], target: str) -> str|None:
         # If exact match, return match
         if match.casefold() == target:
             return match
-        
+
+
+def grab_settings_dict() -> dict:
+    """
+    Loads settings dictionary
+
+    Return:
+        dict: Settings dictionary
+    """
+
+    # Tries to grab the svar
+    settings_dict = load_json(get_svar("crafting_settings", default=get_gvar("d2daf66a-dce2-481b-ab28-f37ffe072de7")))
+
+    # Default setting dictionary
+    default_dict = {
+        "lfg_integration": False,
+        "pro_rate_refund": True,
+        "success_dispType": "star",
+        "failure_dispType": "hex",
+        "jack_of_trades": True,
+        "reliable_talent": False,
+        "success_mod_threshold": {
+            "-999": 1,
+            "5": 2,
+            "10": 3,
+            "15": 4,
+            "20": 5
+        },
+        "whitelisted_channel_ids": [],
+        "parent_channel_inherit": False,
+        "xp_categories": False,
+        "max_history": 15
+    }
+
+    # For each default setting, load default
+    for key, value in default_dict.items():
+        settings_dict.setdefault(key, value)
+
+    # If -999 is not in success mod threshold
+    if "-999" not in settings_dict["success_mod_threshold"]:
+        settings_dict["success_mod_threshold"]["-999"] = 1
+
+    return settings_dict
+
 
 def parse_money(money: str|int) -> list[str, float]:
     """
@@ -341,10 +384,10 @@ def update_cc_settings(settings_dict: dict, item_category: str, item_type: str, 
         (list[str]): Result
     """
 
-    success_counter = ch.edit_cc(name="Crafting: Successes", maxVal=str(ceil(settings_dict[item_category][item_type][4] * succ_mult)), dispType=settings_dict["success_dispType"])
-    failure_counter = ch.edit_cc(name="Crafting: Failures", maxVal=str(settings_dict[item_category][item_type][5]), dispType=settings_dict["failure_dispType"])
+    success_cc = ch.edit_cc(name="Crafting: Successes", maxVal=str(ceil(settings_dict[item_category][item_type][4] * succ_mult)), dispType=settings_dict["success_dispType"])
+    failure_cc = ch.edit_cc(name="Crafting: Failures", maxVal=str(settings_dict[item_category][item_type][5]), dispType=settings_dict["failure_dispType"])
 
-    return ["Success", success_counter, failure_counter]
+    return ["Success", success_cc, failure_cc]
 
 
 def grab_stat_mod(stat_roll: str, jack_of_trades: bool, ch: character) -> list[int,str]:
@@ -393,7 +436,7 @@ def grab_stat_mod(stat_roll: str, jack_of_trades: bool, ch: character) -> list[i
 
     # If jack of all trades is turned off and if the skill had JoAT
     if not jack_of_trades and prof == 0.5:
-        mod =+ floor(proficiencyBonus / 2) * -1
+        mod += floor(proficiencyBonus / 2) * -1
  
     return [mod, stat_roll, prof]
 
@@ -406,7 +449,7 @@ def run_crafting_session(settings_dict: dict, crafting_dict: dict, ch: character
         settings_dict (dict): Settings dictionary
         crafting_dict (dict): Crafting dictionary
         ch (character): Character object
-        adv (int): Advantage level (-1: disadvantage, 0: normal (defualt), 1: Advantage, 2: Double Advantage)
+        adv (int): Advantage level (-1: disadvantage, 0: normal (default), 1: Advantage, 2: Double Advantage)
         bonus (bool|str): If there is a bonus (default) | bonus dice/num 
         ignore_restrictions (bool): Whether or not to ignore restrictions (default: False)
     
@@ -467,15 +510,10 @@ def run_crafting_session(settings_dict: dict, crafting_dict: dict, ch: character
     else:
         bonus = f"{mod_skill[0]}"
 
-    # If reliable talent is disabled or not applicable
-    if not settings_dict["reliable_talent"] or mod_skill[2] == 0:
-        reliable = False
+    reliable = False
 
-    # If reliable talent is enabled and is applicable
-    else:
-
-        if ch.levels.get("rogue") >= 11:
-            reliable = True
+    if settings_dict["reliable_talent"] and mod_skill[2] != 0 and ch.levels.get("Rogue") >= 11:
+        reliable = True
 
     # Match case Halfling, advantage, and reliable
     match ["halfling" in ch.race.lower(), adv, reliable]:
@@ -512,11 +550,11 @@ def run_crafting_session(settings_dict: dict, crafting_dict: dict, ch: character
         case [True, 2, True]:
             dice_str = "3d20ro1kh1mi10"
 
-        # Is not a halfing, disadvantage, and no reliable talent
+        # Is not a halfling, disadvantage, and no reliable talent
         case [False, -1, False]:
             dice_str = "2d20kl1"
 
-        # Is not a halfing, disadvantage, and reliable talent
+        # Is not a halfling, disadvantage, and reliable talent
         case [False, -1, True]:
             dice_str = "2d20kl1mi10"
 
@@ -563,11 +601,12 @@ def run_crafting_session(settings_dict: dict, crafting_dict: dict, ch: character
 
         # If it doesn't have problems with using threshold
         try:
+            success_mod = -999
             excess = roll_total - settings_dict[crafting_dict["category"]][crafting_dict["type"]][1]
 
-            for key in settings_dict["success_mod_threshold"]:
-                if excess >= int(key):
-                    success_mod = int(settings_dict["success_mod_threshold"][key])
+            for key, value in settings_dict["success_mod_threshold"].items():
+                if excess >= int(key) and int(value) >= success_mod:
+                    success_mod = int(value)
 
         # If it has problems with using threshold
         except:
@@ -614,7 +653,7 @@ def run_crafting_session(settings_dict: dict, crafting_dict: dict, ch: character
     # Update crafting dictionary
     ch.set_cvar("crafting_dict", dump_json(crafting_dict))
 
-    # Tries to pull the color from the settings, defaulting to character Csettings if fails.
+    # Tries to pull the color from the settings, defaulting to character csettings if fails.
     try:
         crafting_dict["color"] = settings_dict[craft_category][craft_type][8]
 
@@ -657,37 +696,8 @@ def main(input_list: list[str]) -> tuple[str]:
     current_time = floor(time())
     prefix = ctx.prefix
 
-    # Tries to grab the svar
-    settings_dict = load_json(get_svar("crafting_settings", default=get_gvar("d2daf66a-dce2-481b-ab28-f37ffe072de7")))
-
-    # Default setting dictionary
-    default_dict = {
-        "lfg_integration": False,
-        "pro_rate_refund": True,
-        "success_dispType": "star",
-        "failure_dispType": "hex",
-        "jack_of_trades": True,
-        "reliable_talent": True,
-        "success_mod_threshold": {
-            "-999": 1,
-            "5": 2,
-            "10": 3,
-            "15": 4,
-            "20": 5
-        },
-        "whitelisted_channel_ids": [],
-        "parent_channel_inherit": False,
-        "xp_categories": False,
-        "max_history": 25
-    }
-
-    # For each default setting, load defualt
-    for key, value in default_dict.items():
-        settings_dict.setdefault(key, value)
-
-    # If -999 is not in success mod threshold
-    if "-999" not in settings_dict["success_mod_threshold"]:
-        settings_dict["success_mod_threshold"]["-999"] = 1
+    # Load settings dictionary
+    settings_dict = grab_settings_dict()
 
     # If crafting CCs exist
     if ch.cc_exists("Crafting: Successes") and ch.cc_exists("Crafting: Failures"):
@@ -696,8 +706,12 @@ def main(input_list: list[str]) -> tuple[str]:
         succ_cc = ch.cc("Crafting: Successes")
         fail_cc = ch.cc("Crafting: Failures")
 
-        # Load crafting dict
-        crafting_dict = load_json(ch.get_cvar("crafting_dict"))
+        try:
+            # Load crafting dict
+            crafting_dict = load_json(ch.get_cvar("crafting_dict"))
+
+        except:
+            return "You Have Been Sneak Attacked by an Error", "Alias disconnect has occurred. Please delete the following CCs:\nCrafting: Successes\nCrafting: Failures", error_img, "#CF142B"
 
         # If max failures has been obtained
         if fail_cc.value == fail_cc.max:
@@ -801,7 +815,7 @@ def main(input_list: list[str]) -> tuple[str]:
         if input_list[0].lower() not in extra_args_list:
 
             # If there aren't at least three inputs
-            if len(input_list) < 3
+            if len(input_list) < 3:
                 return "You Have Been Sneak Attacked by an Error", "If you are wanting to start a new crafting session: Please input name, category, and type/cost.", error_img, "#CF142B"
 
             # If second and/or third input is in the extra args list (should be item category and item type/cost)
@@ -882,11 +896,11 @@ def main(input_list: list[str]) -> tuple[str]:
             else:
                 crafting_dict = {}
 
-            # If cost is greater than coinpurse amount (and no ignore restrictions)
+            # If cost is greater than coin purse amount (and no ignore restrictions)
             if cost[1] > ch.coinpurse.total and not ignore_restrictions:
                 return "You Have Been Sneak Attacked by an Error", "You have insufficient funds in order to craft this item", error_img, "#CF142B"
 
-            # If cost is less than coinpurse total (and no ignore restrictions)
+            # If cost is less than coin purse total (and no ignore restrictions)
             elif cost[1] <= ch.coinpurse.total and not ignore_restrictions:
 
                 # Grab gold, silver, and copper amounts
@@ -894,7 +908,7 @@ def main(input_list: list[str]) -> tuple[str]:
                 silver = floor((cost[1] * 10) % 10) * -1
                 copper = floor((cost[1] * 100) % 10) * -1
 
-                # Subtract cost from coinpurse
+                # Subtract cost from coin purse
                 ch.coinpurse.modify_coins(
                     gp=gold,
                     sp=silver,
@@ -930,7 +944,13 @@ def main(input_list: list[str]) -> tuple[str]:
 
             # If crafting CCs exist, load crafting dictionary and set first crafting flag to False
             if ch.cc_exists("Crafting: Successes") and ch.cc_exists("Crafting: Failures"):
-                crafting_dict = load_json(ch.get_cvar("crafting_dict"))
+                try:
+                    # Load crafting dict
+                    crafting_dict = load_json(ch.get_cvar("crafting_dict"))
+
+                except:
+                    return "You Have Been Sneak Attacked by an Error", "Alias disconnect has occurred. Please delete the following CCs:\nCrafting: Successes\nCrafting: Failures", error_img, #CF142B
+
                 crafting_dict["first"] = False
 
             # If crafting CCs do not exist
@@ -949,7 +969,14 @@ def main(input_list: list[str]) -> tuple[str]:
 
         # If crafting CCs exist, load crafting dictionary and set first crafting flag to False
         if ch.cc_exists("Crafting: Successes") and ch.cc_exists("Crafting: Failures"):
-            crafting_dict = load_json(ch.get_cvar("crafting_dict"))
+
+            try:
+                # Load crafting dict
+                crafting_dict = load_json(ch.get_cvar("crafting_dict"))
+
+            except:
+                return "You Have Been Sneak Attacked by an Error", "Alias disconnect has occurred. Please delete the following CCs:\nCrafting: Successes\nCrafting: Failures", error_img, "#CF142B"
+                
             crafting_dict["first"] = False
 
         # If crafting CCs do not exist
@@ -975,8 +1002,8 @@ def main(input_list: list[str]) -> tuple[str]:
 
     # If there were no errors, grab updated CCs
     if cc_test[0] != "Error":
-        success_counter = cc_test[1]
-        failure_counter = cc_test[2]
+        success_cc = cc_test[1]
+        failure_cc = cc_test[2]
 
     # If there was an error, pass it along
     else:
@@ -1009,52 +1036,40 @@ def main(input_list: list[str]) -> tuple[str]:
 
 
     # Display crafting DC
-    result_string.append(f"DC: {settings_dict[crafting_dict['category']][crafting_dict['type']][1]}")
-    result_string.append("")
+    result_string.append(f"DC: {settings_dict[crafting_dict['category']][crafting_dict['type']][1]}\n")
 
     result_string.append(result_list[1])
     result_string.append("")
     
     # Displays value of success (with change, if any)
     if result_list[2] > 0:
-        result_string.append(f"Successes: {success_counter.value}/{success_counter.max} (+{result_list[2]})")
+        result_string.append(f"Successes: {success_cc.value}/{success_cc.max} (+{result_list[2]})")
     elif result_list[2] < 0:
-        result_string.append(f"Successes: {success_counter.value}/{success_counter.max} ({result_list[2]})")
+        result_string.append(f"Successes: {success_cc.value}/{success_cc.max} ({result_list[2]})")
     else:
-        result_string.append(f"Successes: {success_counter.value}/{success_counter.max}")
+        result_string.append(f"Successes: {success_cc.value}/{success_cc.max}")
 
-    if f"{success_counter.value}/{success_counter.max}" == ch.cc_str("Crafting: Successes"):
-        pass
-    else:
+    if f"{success_cc.value}/{success_cc.max}" != ch.cc_str("Crafting: Successes"):
         result_string.append(ch.cc_str("Crafting: Successes"))
-
 
     # Displays value of failure (with change, if any)
     if result_list[3] > 0:
-        result_string.append(f"Failures: {failure_counter.value}/{failure_counter.max} (+{result_list[3]})")
+        result_string.append(f"Failures: {failure_cc.value}/{failure_cc.max} (+{result_list[3]})")
     elif result_list[3] < 0:
-        result_string.append(f"Failures: {failure_counter.value}/{failure_counter.max} ({result_list[3]})")
+        result_string.append(f"Failures: {failure_cc.value}/{failure_cc.max} ({result_list[3]})")
     else:
-        result_string.append(f"Failures: {failure_counter.value}/{failure_counter.max}")
+        result_string.append(f"Failures: {failure_cc.value}/{failure_cc.max}")
 
-    if f"{failure_counter.value}/{failure_counter.max}" == ch.cc_str("Crafting: Failures"):
-        pass
-    else:
+    if f"{failure_cc.value}/{failure_cc.max}" != ch.cc_str("Crafting: Failures"):
         result_string.append(ch.cc_str("Crafting: Failures"))
 
-
     # Checks to see if the failure counter is at max
-    if failure_counter.value == failure_counter.max:
-        result_string.append("")
-        result_string.append(f"Maximum failures reached for a {crafting_dict['name']}! Please run `!craft clear` as you have ruined your materials.")
+    if failure_cc.value == failure_cc.max:
+        result_string.append(f"\nMaximum failures reached for a {crafting_dict['name']}! Please run `!craft clear` as you have ruined your materials.")
 
     # Checks to see if the success counter is at max
-    elif success_counter.value == success_counter.max:
-        result_string.append("")
-        result_string.append(f"You have finished crafting a {crafting_dict['name']}! Please run `!craft clear` as you have finished your item.")
-
-    else:
-        pass
+    elif success_cc.value == success_cc.max:
+        result_string.append(f"\nYou have finished crafting a {crafting_dict['name']}! Please run `!craft clear` as you have finished your item.")
 
     # If the bypass was used
     if crafting_dict["bypass"]:
@@ -1104,4 +1119,4 @@ d = "-"
 -f "{{f}}"
 -thumb "{{thumb}}"
 -color "{{color}}"
--footer "{{ctx.prefix}}craft {{l}}item_name> {{l}}item_category> {{l}}magic_type | cost> {{l}}{{d}}s skill> {{l}}eadv/adv/dis> {{l}}{{d}}succ #>{{"\n"}}3/28/26 | ShadowsStride"
+-footer "{{ctx.prefix}}craft {{l}}item name> {{l}}item category> {{l}}item type | cost> {{l}}{{d}}s skill> {{l}}eadv/adv/dis>{{"\n"}}4/5/26 | ShadowsStride"

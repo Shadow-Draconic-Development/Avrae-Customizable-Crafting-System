@@ -9,37 +9,45 @@ embed
 
 def grab_settings_dict() -> dict:
     """
-    Grabs the settings dictionary, prioritizes svar, but falls back on gvar just in case.
+    Loads settings dictionary
 
     Return:
-        (dict): Settings dictionary
+        dict: Settings dictionary
     """
 
     # Tries to grab the svar
-    setting_test = get_svar("crafting_settings", default="None")
+    settings_dict = load_json(get_svar("crafting_settings", default=get_gvar("d2daf66a-dce2-481b-ab28-f37ffe072de7")))
 
-    # If the svar exists
-    if setting_test != "None":
+    # Default setting dictionary
+    default_dict = {
+        "lfg_integration": False,
+        "pro_rate_refund": True,
+        "success_dispType": "star",
+        "failure_dispType": "hex",
+        "jack_of_trades": True,
+        "reliable_talent": False,
+        "success_mod_threshold": {
+            "-999": 1,
+            "5": 2,
+            "10": 3,
+            "15": 4,
+            "20": 5
+        },
+        "whitelisted_channel_ids": [],
+        "parent_channel_inherit": False,
+        "xp_categories": False,
+        "max_history": 15
+    }
 
-        # Load dictionary
-        settings_dict = load_json(setting_test)
+    # For each default setting, load default
+    for key, value in default_dict.items():
+        settings_dict.setdefault(key, value)
 
-        # Checks to see if whitelisted_channel_ids exists, otherwise defaults to standard settings
-        try:
-            settings_dict["whitelisted_channel_ids"]
-        except:
-            settings_dict["whitelisted_channel_ids"] = []
+    # If -999 is not in success mod threshold
+    if "-999" not in settings_dict["success_mod_threshold"]:
+        settings_dict["success_mod_threshold"]["-999"] = 1
 
-        # Checks to see if parent_channel_inherit exists, otherwise defaults to standard settings
-        try:
-            settings_dict["parent_channel_inherit"]
-        except:
-            settings_dict["parent_channel_inherit"] = False
-
-        return settings_dict
-
-    else:
-        return load_json(get_gvar("d2daf66a-dce2-481b-ab28-f37ffe072de7"))
+    return settings_dict
 
 
 def check_channel(settings_dict: dict = grab_settings_dict()) -> list[str]:
@@ -122,10 +130,10 @@ def main(input_list: list[str], ch = character()) -> list[str]:
     """
 
     # Image urls
-    error_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/error.png"
-    fail_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/fail.png"
-    hammer_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/hammer.png"
-    main_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/image.png"
+    error_img = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/error.png"
+    fail_img = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/fail.png"
+    hammer_img = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/hammer.png"
+    main_img = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/main.png"
 
     # If there are two or more arguments
     if len(input_list) > 1:

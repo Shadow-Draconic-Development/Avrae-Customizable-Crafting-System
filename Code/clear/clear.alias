@@ -12,194 +12,30 @@ embed
 # *******************************************************
 
 
-def search_key(query: str, key_list: list[str]) -> list[str]|str:
+def multiple_match_determine(search_result: list[str], target: str) -> str|None:
     """
-    Searches for dictionary key.
-
-    Args:
-        query (str): The query being made
-        key_list (list): List of keys
-
-    Return:
-        (str): If it finds it, it returns the key, otherwise it returns 'None'
-    """
-
-    # Creates list to store matches
-    key_results = []
-
-    # Checks each item if a match occurs
-    for key in key_list:
-
-        # If matches
-        if query.lower() in key.lower():
-            key_results.append(key)
-
-        else:
-            pass
-
-    # Finds at least 1 match
-    if len(key_results) > 0:
-        return key_results
-
-    # If it finds no matches
-    else:
-        return 'None'
-
-
-def grab_settings_dict() -> dict:
-    """
-    Grabs the settings dictionary, prioritizes svar, but falls back on gvar just in case.
-
-    Return:
-        (dict): Settings dictionary
-    """
-
-    # Tries to grab the svar
-    setting_test = get_svar("crafting_settings", default="None")
-
-    # If the svar exists
-    if setting_test != "None":
-
-        # Load dictionary
-        settings_dict = load_json(setting_test)
-
-        # Checks if pro_rate_refund exists, otherwise defaults to standard settings
-        try:
-            settings_dict['pro_rate_refund']
-        except:
-            settings_dict['pro_rate_refund'] = True
-
-        # Checks to see if whitelisted_channel_ids exists, otherwise defaults to standard settings
-        try:
-            settings_dict["whitelisted_channel_ids"]
-        except:
-            settings_dict["whitelisted_channel_ids"] = []
-
-        # Checks to see if parent_channel_inherit exists, otherwise defaults to standard settings
-        try:
-            settings_dict["parent_channel_inherit"]
-        except:
-            settings_dict["parent_channel_inherit"] = False
-
-        # Checks to see if xp_categories exists, otherwise defaults to standard settings
-        try:
-            settings_dict["xp_categories"]
-
-        except:
-            settings_dict["xp_categories"] = False
-
-        return settings_dict
-
-    else:
-        return load_json(get_gvar("d2daf66a-dce2-481b-ab28-f37ffe072de7"))
-
-
-def check_channel(crafting_dictionary, settings_dict: dict = grab_settings_dict()) -> list[str]:
-    """
-    Verifies that channel is in whitelist
+    Determines if there is an exact match in search results
     
     Args:
-        settings_dict (dict): Settings dictionary (default: grab_settings_dict())
-
-    Return:
-        (list[str]): Return
-    """
-
-    channel_id = 0
-
-    # If there are no channels that this has to be run in
-    if len(settings_dict["whitelisted_channel_ids"]) == 0:
-        return ['Success']
-
-    # If there are channels that this needs to be run in
-    else:
-        
-        # For each channel id
-        for id_num in settings_dict["whitelisted_channel_ids"]:
-
-            # If this is a channel (not a thread)
-            if int(id_num) == ctx.channel.id:
-                channel_id = int(id_num)
-
-            else:
-
-                # Inherit rules are off
-                if not settings_dict["parent_channel_inherit"]:
-                    pass
-
-                # Inherit rules are on
-                else:
-
-                    # If this is a thread
-                    try:
-                        if int(id_num) == ctx.channel.parent.id:
-                            channel_id = int(id_num)
-
-                        else:
-                            pass
-                    
-                    except:
-                        pass
-
-        # If a match was found
-        if channel_id != 0:
-            return ['Success']
-
-        # If a match was not found
-        else:
-            try:
-
-                # Inherit rules are off
-                if not settings_dict["parent_channel_inherit"]:
-                    int('boop')
-
-                # Inherit rules are on
-                else:
-                    return ["Error", f'{ctx.channel.parent.name} is not a valid channel nor is {ctx.channel.name} a valid thread to run this alias (please consult server staff for more details)']
-            
-            except:
-                return ['Error', f'{ctx.channel.name} is not a valid channel to run this alias (please consult server staff for more details)']
-
-
-def add_funds(cost: str, ch: character) -> bool:
-    """
-    Function that handles the adding of funds
-    
-    Args:
-        cost (float): Cost in gp to be added
-        ch (character): Character object 
+        search_result (list[str]): List of search results
+        target (str): Input value to match
 
     Returns:
-        (bool): If adding was successful
+        str|None: The exact match if found, otherwise None
     """
 
-    # Pulls baglibrary
-    using(baglib="4119d62e-6a98-4153-bea9-0a99bb36da2c")
+    # Casefold target (so that number of total case folds is n+1)
+    target = target.casefold()
 
-    # Pull necessary items
-    bagsLoaded = baglib.load_bags()
-    old_coins = baglib.get_coins(bagsLoaded)[1].copy()
-    autoCoins = baglib.settings.get('autoCoins',get("autocoins","0")=="1")
+    # For each match in search result
+    for match in search_result:
 
-    # Pulls money from coin purse
-    delta, coin_error = baglib.parsecoins(str(cost))
+        # If exact match, return match
+        if match.casefold() == target:
+            return match
 
-    # Pulls results
-    resultList = list(old_coins.items())
 
-    # Delta just is the change in coin
-    if delta:
-        focus, error = baglib.modify_coins(bagsLoaded, autoCoins=autoCoins, delta=delta)
-
-        # If there was no error
-        if not error:
-            return True
-
-        # If there was an error
-        else:
-            return False
-
-def add_xp(amount: float, ch: character) -> str[list]:
+def add_xp_func(amount: float, ch: character) -> str[list]:
     """
     Adds xp to cvars
 
@@ -230,391 +66,269 @@ def add_xp(amount: float, ch: character) -> str[list]:
     if floor(amount) == amount:
         amount = int(amount)
 
-    else:
-        pass
-
     return ["Success", f"{amount}xp rewarded"]
 
 
-def cost_hunt(item_category: str, item_type:str, settings_dictionary: dict, ch: character) -> str[list]:
+def grab_settings_dict() -> dict:
     """
-    Function to track down item cost to give xp
-
-    Args:
-        item_category (str): Name of category
-        item_type (str): Name of type
-        settings_dictionary (dict): Settings dictionary
-        ch (character): Character object
+    Loads settings dictionary
 
     Return:
-        (str[list]): Result
+        dict: Settings dictionary
     """
 
-    # Digs into the settings dictionary to try to find the crafting_cost
-    try:
-        return add_xp(round(float(settings_dictionary[item_category][item_type][7]) / 2, 2), ch)
+    # Tries to grab the svar
+    settings_dict = load_json(get_svar("crafting_settings", default=get_gvar("d2daf66a-dce2-481b-ab28-f37ffe072de7")))
 
-    # If there is a problem grabbing the crafting_cost
-    except:
-        return ["Error", "Invalid item cost detected"]
+    # Default setting dictionary
+    default_dict = {
+        "lfg_integration": False,
+        "pro_rate_refund": True,
+        "success_dispType": "star",
+        "failure_dispType": "hex",
+        "jack_of_trades": True,
+        "reliable_talent": False,
+        "success_mod_threshold": {
+            "-999": 1,
+            "5": 2,
+            "10": 3,
+            "15": 4,
+            "20": 5
+        },
+        "whitelisted_channel_ids": [],
+        "parent_channel_inherit": False,
+        "xp_categories": False,
+        "max_history": 15
+    }
+
+    # For each default setting, load default
+    for key, value in default_dict.items():
+        settings_dict.setdefault(key, value)
+
+    # If -999 is not in success mod threshold
+    if "-999" not in settings_dict["success_mod_threshold"]:
+        settings_dict["success_mod_threshold"]["-999"] = 1
+
+    return settings_dict
 
 
-def main(ch = character()) -> list[str]:
+def main() -> tuple[str]:
     """
     Main program function
-
-    Args:
-        ch = character(): Character object
     
     Return:
-        (list[str]): Result    
+        str: Title
+        str: Main Body Paragraph
+        str: Image URL
+        str: Hex color code     
     """
 
-    # Image urls
-    coin_bag_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/coin_bag.png"
-    error_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/error.png"
-    fail_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/fail.png"
-    hammer_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/hammer.png"
+    error_img = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/error.png"
 
-    # If the crafting CCs exist
-    if ch.cc_exists('Crafting: Successes') and ch.cc_exists('Crafting: Failures'):
+    try:
+        ch = character()
 
-        settings_dictionary = grab_settings_dict()
-        crafting_dictionary = load_json(ch.get_cvar('crafting_dict'))
-        success_counter = ch.cc('Crafting: Successes')
-        failure_counter = ch.cc('Crafting: Failures')
+    except:
+        return "You Have Been Sneak Attacked by an Error", "You must have a character selected", error_img, "#CF142B"
 
-        result_list = check_channel(crafting_dictionary, settings_dictionary)
+    if not ch.cc_exists("Crafting: Successes") or not ch.cc_exists("Crafting: Failures"):
+        return "You Have Been Sneak Attacked by an Error", "Crafting CCs don't exist", error_img, "#CF142B"
 
-        if result_list[0] != 'Error':
-            pass
+    # Tries to grab the svar
+    settings_dict = grab_settings_dict()
 
-        else:
-            return [f'{ctx.author.display_name} has encountered an error', result_list[1], error_img, "#CC0202"]
+    try:
+        crafting_dict = load_json(ch.get_cvar("crafting_dict"))
 
-    # If the crafting CCs don't exist
-    else:
-        return [f'{ctx.author.display_name} has encountered an error', "Crafting CCs don't exist", error_img, "#CC0202"]
+    except:
+        return "You Have Been Sneak Attacked by an Error", "Alias disconnect has occurred. Please delete the following CCs:\nCrafting: Successes\nCrafting: Failures", error_img, "#CF142B"
 
-    # If pro_rate_refund is true and that counters have not reached their limts
-    if settings_dictionary['pro_rate_refund'] and (success_counter.value != success_counter.max) and (failure_counter.value != failure_counter.max) and crafting_dictionary['crafting_cost'] != 0:
+    success_cc = ch.cc("Crafting: Successes")
+    failure_cc = ch.cc("Crafting: Failures")
 
-        # Calculates the money to give back
-        percentage_back = (1 - ((success_counter.value / success_counter.max) + (failure_counter.value /(failure_counter.max * 2)))) * .5
+    # If there are at least one channel that is whitelisted
+    if len(settings_dict["whitelisted_channel_ids"]) != 0:
 
-        # If it goes negative money back
+        # Create placeholder for channel_id
+        channel_id = 0
+
+        # For each channel ID in settings dictionary
+        for id_num in settings_dict["whitelisted_channel_ids"]:
+
+            try:
+
+                # If channel ID is present, set placeholder and break
+                if (int_id_num := int(id_num)) == ctx.channel.id:
+                    channel_id = ctx.channel.id
+                    break
+
+                # If number does not appear, check to see if parent channel inherit is on
+                elif settings_dict["parent_channel_inherit"]:
+
+                    # If parent channel is in channel list
+                    if int_id_num == ctx.channel.parent.id:
+                        channel_id = ctx.channel.parent.id
+                        break
+
+            # If there is a problem with one of the channel IDs being converted into an int
+            except:
+                pass
+
+        # If placeholder is still 0 (no match was found)
+        if channel_id == 0:
+
+            # If the current channel is a thread
+            if ctx.channel.parent:
+                return "You Have Been Sneak Attacked by an Error", f"{ctx.channel.parent.name} is not a valid channel, nor is {ctx.channel.name} a valid thread to run this alias (or parent channel inherit is turned off).", error_img, "#CF142B"
+
+            # If the current channel is not a thread
+            else:
+                return "You Have Been Sneak Attacked by an Error", f"{ctx.channel.name} is not a valid channel to run this alias.", error_img, "#CF142B"
+
+    if settings_dict["pro_rate_refund"] and success_cc.value != success_cc.max and failure_cc.value != failure_cc.max and crafting_dict["crafting_cost"] != 0:
+
+        percentage_back = (1 - ((success_cc.value / success_cc.max) + (failure_cc.value /(failure_cc.max * 2)))) * .5
+
         if percentage_back < 0:
             money_back = 0
 
-        # If it stays positive
         else:
-            money_back = round(percentage_back * crafting_dictionary['crafting_cost'], 2)
-            money_dict = dict()
+            money_back = round(percentage_back * crafting_dict["crafting_cost"], 2)
 
-            # Finds how much gold
+            # Grab gold, silver, and copper amounts
             gold = floor(money_back)
-            if gold != 0:
-                money_dict['gold'] = [f"{gold}gp"]
-                
-            else:
-                pass
-
-            # Finds out how much silver
             silver = floor((money_back * 10) % 10)
-            if silver != 0:
-                money_dict['silver'] = [f"{silver}sp"]
-            else:
-                pass
-
-            # Finds out how much copper
             copper = floor((money_back * 100) % 10)
-            if copper != 0:
-                money_dict['copper'] = [f'{copper}cp']
-            else:
-                pass
 
-            # For each coin type, give money
-            for key in money_dict.keys():
-                money_dict[key].append(add_funds(f"{money_dict[key][0]}", ch))
+            # Add cost to coinpurse
+            ch.coinpurse.modify_coins(
+                gp=gold,
+                sp=silver,
+                cp=copper)
 
-            good_dict = dict()
-
-            # Checks to see which coins worked
-            for key in money_dict.keys():
-                if money_dict[key][1]:
-                    good_dict[key] = money_dict[key][0]
-
-                else:
-                    pass
-
-            # If all keys coins worked
-            if len(good_dict.keys()) == len(money_dict.keys()):
-                money_list = []
-
-                for value in good_dict.values():
-                    money_list.append(value)
-
-            # If at least one key did not work, take money back that we took
-            else:
-                for money in good_dict.keys():
-                    add_funds(f"-{good_dict[money]}", ch)
-
-                else:
-                    return [f'{ctx.author.display_name} has encountered an error', f"Prorated refund was not added to your coin purse properly", error_img, "#CC0202"]
-                
-
-    # If pro_rate_refund is false or the counters have reached their limits   
     else:
         money_back = 0
 
-    try:
-        crafting_dictionary['stat']
+    if not "stat" in crafting_dict:
+        crafting_dict["stat"] = ""
 
-    except:
-        crafting_dictionary['stat'] = ""
+    if not "succ_mult" in crafting_dict:
+        crafting_dict["succ_mult"] = 1.0
 
-    try:
-        crafting_dictionary['succ_mult']
-
-    except:
-        crafting_dictionary['succ_mult'] = 1.0
-
-    # Grabs counter values and creates backups
-    crafting_dictionary['backup'] = {
-        'cvar': [
-            crafting_dictionary['name'], 
-            crafting_dictionary['category'], 
-            crafting_dictionary['type'], 
-            crafting_dictionary['time'], 
-            crafting_dictionary['cooldown'],  
-            crafting_dictionary['crafting_cost'],
-            crafting_dictionary['stat'],
-            crafting_dictionary['succ_mult']
+    crafting_dict["backup"] = {
+        "cvar": [
+            crafting_dict["name"],
+            crafting_dict["category"],
+            crafting_dict["type"],
+            crafting_dict["time"],
+            crafting_dict["cooldown"],
+            crafting_dict["crafting_cost"],
+            crafting_dict["stat"],
+            crafting_dict["succ_mult"]
         ],
-        'success_cc': [
-            success_counter.value, 
-            success_counter.max, 
-            success_counter.desc, 
-            success_counter.title
+        "success_cc": [
+            success_cc.value,
+            success_cc.max,
+            success_cc.desc,
+            success_cc.title
         ],
-        'failure_cc': [
-            failure_counter.value, 
-            failure_counter.max, 
-            failure_counter.desc, 
-            failure_counter.title
+        "failure_cc": [
+            failure_cc.value,
+            failure_cc.max,
+            failure_cc.desc,
+            failure_cc.title
         ],
-        'money_back': money_back
+        "money_back": money_back
     }
 
-    # Deletes CCs
-    ch.delete_cc('Crafting: Successes')
-    ch.delete_cc('Crafting: Failures')
+    ch.delete_cc("Crafting: Successes")
+    ch.delete_cc("Crafting: Failures")
 
-    ch.set_cvar('crafting_dict', dump_json(crafting_dictionary))
+    ch.set_cvar("crafting_dict", dump_json(crafting_dict))
+    crafting_dict = load_json(ch.get_cvar("crafting_dict"))
 
     try:
-        color = settings_dictionary[crafting_dictionary['backup']['svar'][1]][crafting_dictionary['backup']['svar'][2]][-1]
+        color = settings_dict[crafting_dict["backup"]["svar"][1]][crafting_dict["backup"]["svar"][2]][-1]
 
     except:
-        color = ""
+        color = color
 
-    # If money was given back
     if money_back > 0:
-        return [f"{name} ({ctx.author.display_name}) cleared their crafting progress for a {crafting_dictionary['name']}", f"Prorated refund: {' '.join(money_list)}", coin_bag_img, color]
+        return f"{name} Has Cleared Their Crafting Progress for a {crafting_dict['name']}", f"Prorated refund: {money_back}gp", "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/coin_bag.png", color
+
+    elif crafting_dict["backup"]["success_cc"][0] == crafting_dict["backup"]["success_cc"][1]:
+
+        try:
+            crafting_dict["backup"]["cvar"][5] = round(float(settings_dict[crafting_dict["backup"]["cvar"][1]][crafting_dict["backup"]["cvar"][2]][7]) / 2, 2)
+
+        except:
+            pass
+
+        # If xp given out is allowed
+        if settings_dict["xp_categories"]:
+
+            add_xp = False
+
+            # Match type of what xp_categories is
+            match typeof(settings_dict["xp_categories"]):
+
+                # If it's a boolean, it has to be true
+                case "bool":
+                    add_xp = True
+
+                # If there is a dictionary
+                case "SafeDict":
+
+                    # If it finds the category in the dictionary
+                    if (search_result := multiple_match_determine(settings_dict["xp_categories"].keys(), crafting_dict["backup"]["cvar"][1])):
+
+                        # 
+                        if typeof(settings_dict["xp_categories"][search_result[0]]) == "str":
+
+                            if settings_dict["xp_categories"][search_result[0]] == "all":
+                                add_xp = True
+
+                            elif settings_dict["xp_categories"][search_result[0]].casefold() == crafting_dict["backup"]["cvar"][2].casefold():
+                                add_xp = True
+
+                        else:
+                            if (search_result2 := multiple_match_determine(settings_dict["xp_categories"][search_result[0]],crafting_dict["backup"]["cvar"][2])):
+                                add_xp = True
+
+                case "SafeList":
+
+                    if (search_result := multiple_match_determine(settings_dict["xp_categories"], crafting_dict["backup"]["cvar"][1])):
+                        add_xp = True
+
+                case _:
+                    if settings_dict["xp_categories"].lower() == "all":
+                        add_xp = True
+
+                    elif settings_dict["xp_categories"].casefold() == crafting_dict["backup"]["cvar"][1].casefold():
+                        add_xp = True
+
+            if add_xp and crafting_dict["backup"]["cvar"][5] != 0:
+                result_list = add_xp_func(crafting_dict["backup"]["cvar"][5], ch)
+
+                return f"{name} Cleared Their Crafting Progress", result_list[1], "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/hammer.png", color
+
+            else:
+                return f"{name} Cleared Their Crafting Progress", "", "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/hammer.png", color
+
+        else:
+            return f"{name} Cleared Their Crafting Progress", "", "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/hammer.png", color
 
     else:
-
-        # Successfully finished the item
-        if crafting_dictionary['backup']['success_cc'][0] == crafting_dictionary['backup']['success_cc'][1]:
-            try:
-                # For use cases where crafting cost is not half the retail cost
-                crafting_dictionary['backup']['cvar'][5] = round(float(settings_dictionary[crafting_dictionary['backup']['cvar'][1]][crafting_dictionary['backup']['cvar'][2]][7]) / 2, 2)
-
-            except:
-                pass
-            
-            # If xp reward is enabled
-            if settings_dictionary["xp_categories"]:
-
-                # If it is "True", turn it into "all"
-                if typeof(settings_dictionary["xp_categories"]) == 'bool':
-                    settings_dictionary["xp_categories"] = 'all'
-
-                # If it is not "True"
-                else:
-                    pass
-
-                # If it is a dictionary
-                if typeof(settings_dictionary['xp_categories']) == "SafeDict":
-
-                    # Tries to find category within the settings
-                    try:
-                        result_key = search_key(crafting_dictionary['backup']['cvar'][1], settings_dictionary['xp_categories'].keys())
-
-                    # If there is an error
-                    except:
-                        result_key = "None"
-
-                    # If the category is found (and no errors)
-                    if result_key != "None":
-
-                        # If the type_setting is a string
-                        if typeof(settings_dictionary["xp_categories"][result_key[0]]) == "str":
-
-                            # If the type_setting is "all"
-                            if settings_dictionary["xp_categories"][result_key[0]].lower() == "all":
-
-                                # If there was a crafting_cost associated with the item
-                                if crafting_dictionary['backup']['cvar'][5] != 0:
-                                    result_list = add_xp(crafting_dictionary['backup']['cvar'][5], ch)
-
-                                # If there was not a crafting_cost associated with the item
-                                else:
-                                    result_list = cost_hunt(crafting_dictionary['backup']['cvar'][1], crafting_dictionary['backup']['cvar'][2], settings_dictionary, ch)
-
-                            # If the type_setting is not "all"
-                            else:
-
-                                # If the type is defined in the type_setting string
-                                if crafting_dictionary['backup']['cvar'][2].lower() in settings_dictionary["xp_categories"][result_key[0]].lower():
-
-                                    # If there was a crafting_cost associated with the item
-                                    if crafting_dictionary['backup']['cvar'][5] != 0:
-                                        result_list = add_xp(crafting_dictionary['backup']['cvar'][5], ch)
-
-                                    # If there was not a crafting_cost associated with the item
-                                    else:
-                                        result_list = cost_hunt(crafting_dictionary['backup']['cvar'][1], crafting_dictionary['backup']['cvar'][2], settings_dictionary, ch)
-
-                                # If the type is not defined in the type_setting string
-                                else:
-                                    result_list = ["Success", "No xp rewarded"]
-
-                        # If the type_setting is not a string
-                        else:
-
-                            # Set default behavior
-                            result_list = False
-
-                            # Tries to pull an item from the list
-                            for item in settings_dictionary["xp_categories"][result_key[0]]:
-
-                                # If it has not found an item
-                                if not result_list:
-
-                                    # If the item found is the item or the item is "all"
-                                    if crafting_dictionary['backup']['cvar'][2].lower() in item.lower() or item.lower() == 'all':
-
-                                        # If there was a crafting_cost associated with the item
-                                        if crafting_dictionary['backup']['cvar'][5] != 0:
-                                            result_list = add_xp(crafting_dictionary['backup']['cvar'][5], ch)
-
-                                        # If there was not a crafting_cost associated with the item
-                                        else:
-                                            result_list = cost_hunt(crafting_dictionary['backup']['cvar'][1], crafting_dictionary['backup']['cvar'][2], settings_dictionary, ch)
-                                            
-                                    # If the item is not in the list
-                                    else:
-                                        pass
-                                
-                                # If it has already been found
-                                else:
-                                    pass
-
-                            # If it did not find the item from the list
-                            if not result_list:
-                                result_list = ["Success", "No xp rewarded"]
-
-                            # If it did find the item from the list
-                            else:
-                                pass
-
-                    # If the category is not found
-                    else:
-                        result_list = ["Success", "No xp rewarded"]
-
-                # If it is a list
-                elif typeof(settings_dictionary['xp_categories']) != "str" or typeof(settings_dictionary['xp_categories']) != "bool":
-                    result_list = False
-
-                    # Tries to pull an item from the list
-                    for item in settings_dictionary['xp_categories']:
-
-                        # If it has not found an item
-                        if not result_list:
-
-                            # If the item found is the item or the item is "all"
-                            if crafting_dictionary['backup']['cvar'][1].lower() in item.lower() or item.lower() == 'all':
-
-                                # If there was a crafting_cost associated with the item
-                                if crafting_dictionary['backup']['cvar'][5] != 0:
-                                    result_list = add_xp(crafting_dictionary['backup']['cvar'][5], ch)
-
-                                # If there was not a crafting_cost associated with the item
-                                else:
-                                    result_list = cost_hunt(crafting_dictionary['backup']['cvar'][1], crafting_dictionary['backup']['cvar'][2], settings_dictionary, ch)
-
-                    # If it did not find the item from the list
-                    if not result_list:
-                        result_list = ["Success", "No xp rewarded"]
-
-                    # If it did find the item from the list
-                    else:
-                        pass
-
-                # If it is a string
-                else:
-
-                    # If the item found is the item or the item is "all"
-                    if crafting_dictionary['backup']['cvar'][1].lower() in settings_dictionary['xp_categories'].lower() or settings_dictionary['xp_categories'].lower() == 'all':
-
-                        # If there was a crafting_cost associated with the item
-                        if crafting_dictionary['backup']['cvar'][5] != 0:
-                            result_list = add_xp(crafting_dictionary['backup']['cvar'][5], ch)
-
-                        # If there was not a crafting_cost associated with the item
-                        else:
-                            result_list = cost_hunt(crafting_dictionary['backup']['cvar'][1], crafting_dictionary['backup']['cvar'][2], settings_dictionary, ch)
-
-                    else:
-                        result_list = ["Success", "No xp rewarded"]
-
-            # If xp reward is not enabled
-            else:
-                result_list = ["Success", ""]
-
-            # If there was not an error
-            if result_list[0] != "Error":
-                result_string = result_list[1]
-
-            # If there was an error, show it as a warning (not a full error)
-            else:
-                result_string = f"**Warning:\n{result_list[1]}**"
-
-            return [f"{name} ({ctx.author.display_name}) cleared their crafting progress for a {crafting_dictionary['name']}", result_string, hammer_img, color]
-
-        # Max failures
-        elif crafting_dictionary['backup']['failure_cc'][0] == crafting_dictionary['backup']['failure_cc'][1]:
-            return [f"{name} ({ctx.author.display_name}) cleared their crafting progress for a {crafting_dictionary['name']}", "", fail_img, color]
-
-        # Quitting early
-        else:
-            return [f"{name} ({ctx.author.display_name}) cleared their crafting progress for a {crafting_dictionary['name']}", "", fail_img, color]
+        return f"{name} Cleared Their Crafting Progress", "", "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/fail.png", color
     
 
 # Runs main program
-output_list = main()
-
-try:
-    output_list[3]
-
-except:
-    output_list.append("")
+title, f, thumb, color = main()
 
 
 </drac2>
--title "{{output_list[0]}}"
--f "{{output_list[1]}}"
--thumb "{{output_list[2]}}"
--color "{{output_list[3]}}"
--footer "!craft clear | Updated 8/21/2023 | ShadowsStride"
+-title "{{title}}"
+-f "{{f}}"
+-thumb "{{thumb}}"
+-color "{{color}}"
+-footer "{{ctx.prefix}}craft clear | 4/5/26 | ShadowsStride"

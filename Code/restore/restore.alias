@@ -12,565 +12,335 @@ embed
 # *******************************************************
 
 
-def add_remove_funds(cost: str, ch: character) -> bool:
-    """
-    Function that handles the adding of funds
-    
-    Args:
-        cost (float): Cost in gp to be added
-        ch (character): Character object 
-
-    Returns:
-        (bool): If adding was successful
-    """
-
-    # Pulls baglibrary
-    using(baglib="4119d62e-6a98-4153-bea9-0a99bb36da2c")
-
-    # Pull necessary items
-    bagsLoaded = baglib.load_bags()
-    old_coins = baglib.get_coins(bagsLoaded)[1].copy()
-    autoCoins = baglib.settings.get('autoCoins',get("autocoins","0")=="1")
-
-    # Pulls money from coin purse
-    delta, coin_error = baglib.parsecoins(str(cost))
-
-    # Pulls results
-    resultList = list(old_coins.items())
-
-    # Delta just is the change in coin
-    if delta:
-        focus, error = baglib.modify_coins(bagsLoaded, autoCoins=autoCoins, delta=delta)
-
-        # If there was no error
-        if not error:
-            return True
-
-        # If there was an error
-        else:
-            return False
-
-
 def grab_settings_dict() -> dict:
     """
-    Grabs the settings dictionary, prioritizes svar, but falls back on gvar just in case.
+    Loads settings dictionary
 
     Return:
-        (dict): Settings dictionary
+        dict: Settings dictionary
     """
 
     # Tries to grab the svar
-    setting_test = get_svar("crafting_settings", default="None")
+    settings_dict = load_json(get_svar("crafting_settings", default=get_gvar("d2daf66a-dce2-481b-ab28-f37ffe072de7")))
 
-    # If the svar exists
-    if setting_test != "None":
+    # Default setting dictionary
+    default_dict = {
+        "lfg_integration": False,
+        "pro_rate_refund": True,
+        "success_dispType": "star",
+        "failure_dispType": "hex",
+        "jack_of_trades": True,
+        "reliable_talent": False,
+        "success_mod_threshold": {
+            "-999": 1,
+            "5": 2,
+            "10": 3,
+            "15": 4,
+            "20": 5
+        },
+        "whitelisted_channel_ids": [],
+        "parent_channel_inherit": False,
+        "xp_categories": False,
+        "max_history": 15
+    }
 
-        # Load dictionary
-        settings_dictionary = load_json(setting_test)
+    # For each default setting, load default
+    for key, value in default_dict.items():
+        settings_dict.setdefault(key, value)
 
-        try:
-            settings_dictionary["parent_channel_inherit"]
+    # If -999 is not in success mod threshold
+    if "-999" not in settings_dict["success_mod_threshold"]:
+        settings_dict["success_mod_threshold"]["-999"] = 1
 
-        except:
-            settings_dictionary["parent_channel_inherit"] = False
-
-        try:
-            settings_dictionary['pro_rate_refund']
-
-        except:
-            settings_dictionary['pro_rate_refund'] = True
-
-        try:
-            settings_dictionary['success_dispType']
-
-        except:
-            settings_dictionary['success_dispType'] = "star"
-
-        try:
-            settings_dictionary['failure_dispType']
-
-        except:
-            settings_dictionary['failure_dispType'] = "hex"
-
-        return settings_dictionary
-
-    else:
-        return load_json(get_gvar("d2daf66a-dce2-481b-ab28-f37ffe072de7"))
+    return settings_dict
 
 
-def deal_money(money: float, ch: character) -> list[str]:
-    """
-    Manages the flow of money
-    
-    Args:
-        money (float): Money in gp to remove/add
-        ch (character): Character object
-
-    Return:
-        (list[str]): Result
-    """
-
-    money_list = []
-
-    # If money is positive
-    if money > 0:
-        give = True
-
-    # If money is negative
-    else:
-        give = False
-
-    # Removes any possible negative negative
-    money = abs(money)
-
-    # Calculates the number of gold
-    gold = floor(money)
-    if gold != 0:
-        if give:
-            money_list.append(f"{gold}gp")
-        
-        else:
-            money_list.append(f"-{gold}gp")
-
-    else:
-        pass
-
-    # Calculates the number of silver
-    silver = floor((money * 10) % 10)
-    if silver != 0:
-        if give:
-            money_list.append(f"{silver}sp")
-        
-        else:
-            money_list.append(f"-{silver}sp")
-
-    else:
-        pass
-
-    # Calculates the number of copper
-    copper = floor((money * 100) % 10)
-    if copper != 0:
-        if give:
-            money_list.append(f"{copper}cp")
-        
-        else:
-            money_list.append(f"-{copper}cp")
-
-    else:
-        pass
-
-    good_list = []
-
-    # Takes/removes money
-    for currency in money_list:
-        if add_remove_funds(currency, ch):
-            good_list.append(currency)
-
-        else:
-            pass
-
-    # If the same amount of money succeeded
-    if len(money_list) == len(good_list):
-        return ['Success']
-
-    # If there was an error
-    else:
-
-        # If money was given, take it back
-        if give:
-            for currency in good_list:
-                add_remove_funds(f"-{currency}", ch)
-
-            return ["Error"]
-
-        # If money was taken, give it back
-        else:
-            for currency in good_list:
-                split_list = currency.split("-")
-                add_remove_funds(split_list[1], ch)
-
-            return ["Error"]
-
-
-def check_channel(settings_dict: dict = grab_settings_dict()) -> list[str]:
-    """
-    Verifies that channel is in whitelist
-    
-    Args:
-        settings_dict (dict): Settings dictionary (default: grab_settings_dict())
-
-    Return:
-        (list[str]): Return
-    """
-
-    channel_id = 0
-    
-    # If there are no channels that this has to be run in
-    if len(settings_dict["whitelisted_channel_ids"]) == 0:
-        return ['Success']
-
-    # If there are channels that this needs to be run in
-    else:
-        
-        # For each channel id
-        for id_num in settings_dict["whitelisted_channel_ids"]:
-
-            # If this is a channel (not a thread)
-            if int(id_num) == ctx.channel.id:
-                channel_id = int(id_num)
-
-            else:
-
-                # Inherit rules are off
-                if not settings_dict["parent_channel_inherit"]:
-                    pass
-
-                # Inherit rules are on
-                else:
-
-                    # If this is a thread
-                    try:
-                        if int(id_num) == ctx.channel.parent.id:
-                            channel_id = int(id_num)
-
-                        else:
-                            pass
-                    
-                    except:
-                        pass
-
-        # If a match was found
-        if channel_id != 0:
-            return ['Success']
-
-        # If a match was not found
-        else:
-            try:
-
-                # Inherit rules are off
-                if not settings_dict["parent_channel_inherit"]:
-                    int('boop')
-
-                # Inherit rules are on
-                else:
-                    return ['Error', f'{ctx.channel.parent.name} is not a valid channel nor is {ctx.channel.name} a valid thread to run this alias (please consult server staff for more details)']
-            
-            except:
-                return ['Error', f'{ctx.channel.name} is not a valid channel to run this alias (please consult server staff for more details)']
-
-
-def main(ch = character()) -> list[str]:
+def main() -> tuple[str]:
     """
     Main program function
 
-    Args:
-        ch = character(): Character object
-
     Return:
-        (list[str]): Result    
+        str: Title
+        str: Main body paragraph
+        str: Image URL
+        str: Color hex code
     """
 
-    # Image urls
-    error_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/error.png"
-    hammer_img = "https://raw.githubusercontent.com/SethHartman13/Avrae-Aliases-Snippets/master/Aliases/craft/images/hammer.png"
+    error_img = "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/error.png"
 
-    # Settings and crafting dictionary
-    settings_dictionary = grab_settings_dict()
-    crafting_test = ch.get_cvar('crafting_dict', default="None")
+    # Try to load character object
+    try:
+        ch = character()
 
-    # Check channel
-    result_list = check_channel(settings_dictionary)
+    # If there is no character selected
+    except:
+        return "You Have Been Sneak Attacked by an Error", "You must have a character selected", error_img, "#CF142B"
 
-    if result_list[0] != "Error":
-        pass
+
+    if (crafting_test := ch.get_cvar("crafting_dict")):
+        crafting_dict = load_json(crafting_test)
+
+        if not "backup" in crafting_dict:
+            return "You Have Been Sneak Attacked by an Error", "Backup not found", error_img, "#CF142B"
 
     else:
-        return [f'{ctx.author.display_name} has encountered an error', result_list[1], error_img, '#CC0202']
+        return "You Have Been Sneak Attacked by an Error", "Crafting CVAR does not exist", error_img, "#CF142B"
 
-    # If the crafting dictionary exists
-    if crafting_test != 'None':
-        crafting_dictionary = load_json(crafting_test)
 
-        try:
-            crafting_dictionary['backup']
+    settings_dict = grab_settings_dict()
 
-        except:
-            return [f'{ctx.author.display_name} has encountered an error', 'Backup not found', error_img, '#CC0202']
+    # If there are at least one channel that is whitelisted
+    if len(settings_dict["whitelisted_channel_ids"]) != 0:
 
-    # If the crafting dictionary does not exist
-    else:
-        return [f'{ctx.author.display_name} has encountered an error', 'Crafting cvar does not exist', error_img, '#CC0202']
+        # Create placeholder for channel_id
+        channel_id = 0
 
-    # If the item that they are trying to restore is not 'completed'
-    if crafting_dictionary['backup']['success_cc'][0] != crafting_dictionary['backup']['success_cc'][1] and crafting_dictionary['backup']['failure_cc'][0] != crafting_dictionary['backup']['failure_cc'][1]:
-        pass
+        # For each channel ID in settings dictionary
+        for id_num in settings_dict["whitelisted_channel_ids"]:
 
-    # If the item that they are trying to restore is 'completed'
-    else:
-        return [f'{ctx.author.display_name} has encountered an error', 'You cannot restore a failed/completed item', error_img, '#CC0202']
+            try:
 
-    # If the CCs already exist (aka a restore during a current crafting session)
-    if ch.cc_exists('Crafting: Successes') and ch.cc_exists('Crafting: Failures'):
-        success_counter = ch.cc('Crafting: Successes')
-        failure_counter = ch.cc('Crafting: Failures')
+                # If channel ID is present, set placeholder and break
+                if (int_id_num := int(id_num)) == ctx.channel.id:
+                    channel_id = ctx.channel.id
+                    break
 
-        # Checks to verify that the items are not 'completed'
-        if success_counter.value != success_counter.max and failure_counter.value != failure_counter.max:
+                # If number does not appear, check to see if parent channel inherit is on
+                elif settings_dict["parent_channel_inherit"]:
 
-            # If the money back is not zero
-            if crafting_dictionary['backup']['money_back'] != 0:
+                    # If parent channel is in channel list
+                    if int_id_num == ctx.channel.parent.id:
+                        channel_id = ctx.channel.parent.id
+                        break
 
-                # Take money from the player
-                result_list = deal_money(abs(crafting_dictionary['backup']['money_back']) * -1, ch)
+            # If there is a problem with one of the channel IDs being converted into an int
+            except:
+                pass
 
-                # Player has the money
-                if result_list[0] != "Error":
-                    pass
+        # If placeholder is still 0 (no match was found)
+        if channel_id == 0:
 
-                # Player does not have the money
-                else:
-                    return [f'{ctx.author.display_name} has encountered an error', f"You do not have enough funds to do a restore. You need {abs(crafting_dictionary['backup']['money_back'])}gp total", error_img, '#CC0202']
+            # If the current channel is a thread
+            if ctx.channel.parent:
+                return "You Have Been Sneak Attacked by an Error", f"{ctx.channel.parent.name} is not a valid channel, nor is {ctx.channel.name} a valid thread to run this alias (or parent channel inherit is turned off).", error_img, "#CF142B"
 
-            # Money back is 0
+            # If the current channel is not a thread
             else:
-                money_back = 0
+                return "You Have Been Sneak Attacked by an Error", f"{ctx.channel.name} is not a valid channel to run this alias.", error_img, "#CF142B"
 
-        # Money back is 0
-        else:
-            money_back = 0
+    if crafting_dict["backup"]["success_cc"][0] == crafting_dict["backup"]["success_cc"][1] or crafting_dict["backup"]["failure_cc"][0] == crafting_dict["backup"]["failure_cc"][1]:
+        return "You Have Been Sneak Attacked by an Error", "You cannot restore a failed/restored item", error_img, "#CF142B"
 
-        # Sees if there is a pro rate refund
-        if settings_dictionary['pro_rate_refund'] and crafting_dictionary['crafting_cost'] != 0:
+    # If the CCs already exist (aka restore during a current crafting session)
+    if ch.cc_exists("Crafting: Successes") and ch.cc_exists("Crafting: Failures"):
+        success_cc = ch.cc("Crafting: Successes")
+        failure_cc = ch.cc("Crafting: Failures")
 
-            # Calculates the money to give back
-            percentage_back = (1 - ((success_counter.value / success_counter.max) + (failure_counter.value /(failure_counter.max * 2)))) * .5
+        if settings_dict["pro_rate_refund"] and success_cc.value != success_cc.max and failure_cc.value != failure_cc.max and crafting_dict["crafting_cost"] != 0:
 
-            # If it goes negative money back, give nothing
+            percentage_back = (1 - ((success_cc.value / success_cc.max) + (failure_cc.value /(failure_cc.max * 2)))) * .5
+
             if percentage_back < 0:
-                money_back = 0
+                money_given_back = 0
 
-            # If it stays positive
             else:
-                money_back = abs(round(percentage_back * crafting_dictionary['crafting_cost'], 2))
+                money_given_back = abs(round(percentage_back * crafting_dict["crafting_cost"], 2))
 
-                result_list = deal_money(money_back, ch)
-
-                # If there is not any problems giving the player money
-                if result_list[0] != "Error":
-                    pass
-
-                else:
-
-                    # Checks again that it was not already completed and takes money back
-                    if crafting_dictionary['backup']['money_back'] != 0 and (success_counter.value != success_counter.max and failure_counter.value != failure_counter.max):
-                        deal_money(abs(crafting_dictionary['backup']['money_back']), ch)
-
-                    else:
-                        pass
-
-                    return [f'{ctx.author.display_name} has encountered an error', result_list[1], error_img, '#CC0202']
-                
         else:
-            money_back = 0
+            money_given_back = 0
 
+        money_taken_back = abs(crafting_dict["backup"]["money_back"]) * -1
 
-        # Creates string of backup dictionary, have to do it this way since draconic doesn't know how to deep copy
-        temp_str_dictionary = dump_json(crafting_dictionary['backup'])
+        if (money_back := (money_given_back * -1) + (money_taken_back * -1)) > ch.coinpurse.total:
+            return "You Have Been Sneak Attacked by an Error", "You cannot restore this item because you do not have the funds to do so", error_img, "#CF142B"
 
-        # Puts all the stuff from the main section of the dictionary into the backup
-        crafting_dictionary['backup']['cvar'][0] = crafting_dictionary['name']
-        crafting_dictionary['backup']['cvar'][1] = crafting_dictionary['category']
-        crafting_dictionary['backup']['cvar'][2] = crafting_dictionary['type']
-        crafting_dictionary['backup']['cvar'][3] = crafting_dictionary['time']
-        crafting_dictionary['backup']['cvar'][4] = crafting_dictionary['cooldown']
-        crafting_dictionary['backup']['cvar'][5] = crafting_dictionary['crafting_cost']
+        else:
+            money_back = money_back * -1
 
-        # This was to allow so that previously made crafting sessions do not derp
-        try:
-            crafting_dictionary['backup']['cvar'][6] = crafting_dictionary['stat']
+            # Grab gold, silver, and copper amounts
+            gold = floor(money_back)
+            silver = floor((money_back * 10) % 10)
+            copper = floor((money_back * 100) % 10)
 
-        except:
-            crafting_dictionary['backup']['cvar'][6] = ""
+            # Subtract cost from coin purse
+            ch.coinpurse.modify_coins(
+                gp=gold,
+                sp=silver,
+                cp=copper)
 
-        try:
-            crafting_dictionary['backup']['cvar'][7] = crafting_dictionary['succ_mult']
+        temp_dict = dump_json(crafting_dict["backup"])
 
-        except:
-            crafting_dictionary['backup']['cvar'][7] = 1.0
-        
+        crafting_dict["backup"]["cvar"][0] = crafting_dict["name"]
+        crafting_dict["backup"]["cvar"][1] = crafting_dict["category"]
+        crafting_dict["backup"]["cvar"][2] = crafting_dict["type"]
+        crafting_dict["backup"]["cvar"][3] = crafting_dict["time"]
+        crafting_dict["backup"]["cvar"][4] = crafting_dict["cooldown"]
+        crafting_dict["backup"]["cvar"][5] = crafting_dict["crafting_cost"]
+        crafting_dict["backup"]["cvar"][6] = crafting_dict["stat"]
+        crafting_dict["backup"]["cvar"][7] = crafting_dict["succ_mult"]
 
-        crafting_dictionary['backup']['money_back'] = money_back
+        crafting_dict["backup"]["money_back"] = money_given_back
 
         # Puts the counter values into backup
-        crafting_dictionary['backup']['success_cc'][0] = success_counter.value
-        crafting_dictionary['backup']['success_cc'][1] = success_counter.max
-        crafting_dictionary['backup']['success_cc'][2] = success_counter.desc
-        crafting_dictionary['backup']['success_cc'][3] = success_counter.title
+        crafting_dict["backup"]["success_cc"][0] = success_cc.value
+        crafting_dict["backup"]["success_cc"][1] = success_cc.max
+        crafting_dict["backup"]["success_cc"][2] = success_cc.desc
+        crafting_dict["backup"]["success_cc"][3] = success_cc.title
 
-        crafting_dictionary['backup']['failure_cc'][0] = failure_counter.value
-        crafting_dictionary['backup']['failure_cc'][1] = failure_counter.max
-        crafting_dictionary['backup']['failure_cc'][2] = failure_counter.desc
-        crafting_dictionary['backup']['failure_cc'][3] = failure_counter.title
+        crafting_dict["backup"]["failure_cc"][0] = failure_cc.value
+        crafting_dict["backup"]["failure_cc"][1] = failure_cc.max
+        crafting_dict["backup"]["failure_cc"][2] = failure_cc.desc
+        crafting_dict["backup"]["failure_cc"][3] = failure_cc.title
 
-        # Pulls the temporary dictionary and puts items from the backup into the main cvar
-        temp_dictionary = load_json(temp_str_dictionary)
-        crafting_dictionary['name'] = temp_dictionary['cvar'][0]
-        crafting_dictionary['category'] = temp_dictionary['cvar'][1]
-        crafting_dictionary['type'] = temp_dictionary['cvar'][2]
-        crafting_dictionary['time'] = temp_dictionary['cvar'][3]
-        crafting_dictionary['cooldown'] = temp_dictionary['cvar'][4]
-        crafting_dictionary['crafting_cost'] = temp_dictionary['cvar'][5]
+        temp_dict = load_json(temp_dict)
 
-        # This was to allow so that previously made crafting sessions do not derp
-        try:
-            crafting_dictionary['stat'] = temp_dictionary['cvar'][6]
+        crafting_dict["name"] = temp_dict["cvar"][0]
+        crafting_dict["category"] = temp_dict["cvar"][1]
+        crafting_dict["type"] = temp_dict["cvar"][2]
+        crafting_dict["time"] = temp_dict["cvar"][3]
+        crafting_dict["cooldown"] = temp_dict["cvar"][4]
+        crafting_dict["crafting_cost"] = temp_dict["cvar"][5]
+        crafting_dict["stat"] = temp_dict["cvar"][6]
+        crafting_dict["succ_mult"] = temp_dict["cvar"][7]
 
-        except:
-            crafting_dictionary['stat'] = ""
-
-        try:
-            crafting_dictionary['succ_mult'] = temp_dictionary['cvar'][7]
-
-        except:
-            crafting_dictionary['succ_mult'] = 1.0
-        
-        # Stores disptypes so that I don't have to pull from the settings dictionary
-        success_dispType = success_counter.display_type
-        failure_dispType = failure_counter.display_type
+        success_dispType = success_cc.display_type
+        failure_dispType = failure_cc.display_type
 
         # Delete old ccs
         ch.delete_cc('Crafting: Successes')
         ch.delete_cc('Crafting: Failures')
 
         # Create new ccs
-        success_counter = ch.create_cc(
+        success_cc = ch.create_cc(
             name="Crafting: Successes",
             minVal="0",
-            maxVal=str(temp_dictionary['success_cc'][1]),
+            maxVal=str(temp_dict['success_cc'][1]),
             reset='none',
             dispType=success_dispType,
-            title=temp_dictionary['success_cc'][3],
-            desc=temp_dictionary['success_cc'][2],
-            initial_value=str(temp_dictionary['success_cc'][0])
+            title=temp_dict['success_cc'][3],
+            desc=temp_dict['success_cc'][2],
+            initial_value=str(temp_dict['success_cc'][0])
         )
 
-        failure_counter = ch.create_cc(
+        failure_cc = ch.create_cc(
             name="Crafting: Failures",
             minVal="0",
-            maxVal=str(temp_dictionary['failure_cc'][1]),
+            maxVal=str(temp_dict['failure_cc'][1]),
             reset='none',
             dispType=success_dispType,
-            title=temp_dictionary['failure_cc'][3],
-            desc=temp_dictionary['failure_cc'][2],
-            initial_value=str(temp_dictionary['failure_cc'][0])
+            title=temp_dict['failure_cc'][3],
+            desc=temp_dict['failure_cc'][2],
+            initial_value=str(temp_dict['failure_cc'][0])
         )
 
     # If there is not an active crafting session
     else:
 
-        # If a refund was given
-        if settings_dictionary['pro_rate_refund'] and crafting_dictionary['backup']['money_back'] != 0:
-            
-            result_list = deal_money(abs(crafting_dictionary['backup']['money_back']) * -1, ch)
+        if crafting_dict["backup"]["money_back"] != 0:
 
-            # If the player is able to pay
-            if result_list[0] != "Error":
-                pass
+            if (money_back := abs(crafting_dict["backup"]["money_back"])) > ch.coinpurse.total:
+                return "You Have Been Sneak Attacked by an Error", "You cannot restore this item because you do not have the funds to do so", error_img, "#CF142B"
 
-            # If the players does not have the funds
             else:
-                return [f'{ctx.author.display_name} has encountered an error', f"You do not have enough funds to do a restore. You need {abs(crafting_dictionary['backup']['money_back'])}gp total", error_img, '#CC0202']
 
-        # No refund
+                money_back = money_back * - 1
+
+                # Grab gold, silver, and copper amounts
+                gold = floor(money_back)
+                silver = floor((money_back * 10) % 10)
+                copper = floor((money_back * 100) % 10)
+
+                # Subtract cost from coin purse
+                ch.coinpurse.modify_coins(
+                    gp=gold,
+                    sp=silver,
+                    cp=copper)
+
         else:
             money_back = 0
 
-        # Puts items from backup into main cvar
-        crafting_dictionary['name'] = crafting_dictionary['backup']['cvar'][0]
-        crafting_dictionary['category'] = crafting_dictionary['backup']['cvar'][1]
-        crafting_dictionary['type'] = crafting_dictionary['backup']['cvar'][2]
-        crafting_dictionary['time'] = crafting_dictionary['backup']['cvar'][3]
-        crafting_dictionary['cooldown'] = crafting_dictionary['backup']['cvar'][4]
-        crafting_dictionary['crafting_cost'] = crafting_dictionary['backup']['cvar'][5]
+        # Puts items from backup into main CVAR
+        crafting_dict["name"] = crafting_dict["backup"]["cvar"][0]
+        crafting_dict["category"] = crafting_dict["backup"]["cvar"][1]
+        crafting_dict["type"] = crafting_dict["backup"]["cvar"][2]
+        crafting_dict["time"] = crafting_dict["backup"]["cvar"][3]
+        crafting_dict["cooldown"] = crafting_dict["backup"]["cvar"][4]
+        crafting_dict["crafting_cost"] = crafting_dict["backup"]["cvar"][5]
+        crafting_dict["stat"] = crafting_dict["backup"]["cvar"][6]
 
-        # This was to allow so that previously made crafting sessions do not derp
-        try:
-            crafting_dictionary['stat'] = crafting_dictionary['backup']['cvar'][6]
-
-        except:
-            crafting_dictionary['stat'] = ""
-
-        # Creates new counters
-        success_counter = ch.create_cc(
+        success_cc = ch.create_cc(
             name="Crafting: Successes",
             minVal="0",
-            maxVal=str(crafting_dictionary['backup']['success_cc'][1]),
-            reset='none',
-            dispType=settings_dictionary['success_dispType'],
-            title=crafting_dictionary['backup']['success_cc'][3],
-            desc=crafting_dictionary['backup']['success_cc'][2],
-            initial_value=str(crafting_dictionary['backup']['success_cc'][0])
+            maxVal=str(crafting_dict["backup"]["success_cc"][1]),
+            reset="none",
+            dispType=settings_dict["success_dispType"],
+            title=crafting_dict["backup"]["success_cc"][3],
+            desc=crafting_dict["backup"]["success_cc"][2],
+            initial_value=str(crafting_dict["backup"]["success_cc"][0])
         )
 
-        failure_counter = ch.create_cc(
+        failure_cc = ch.create_cc(
             name="Crafting: Failures",
             minVal="0",
-            maxVal=str(crafting_dictionary['backup']['failure_cc'][1]),
-            reset='none',
-            dispType=settings_dictionary['failure_dispType'],
-            title=crafting_dictionary['backup']['failure_cc'][3],
-            desc=crafting_dictionary['backup']['failure_cc'][2],
-            initial_value=str(crafting_dictionary['backup']['failure_cc'][0])
+            maxVal=str(crafting_dict["backup"]["failure_cc"][1]),
+            reset="none",
+            dispType=settings_dict["failure_dispType"],
+            title=crafting_dict["backup"]["failure_cc"][3],
+            desc=crafting_dict["backup"]["failure_cc"][2],
+            initial_value=str(crafting_dict["backup"]["failure_cc"][0])
         )
 
-        # Deletes the backup
-        crafting_dictionary.pop('backup')
+        crafting_dict.pop("backup")
 
     # Tries to pull a color
     try:
-        crafting_dictionary['color'] = settings_dictionary[crafting_dictionary['category']][crafting_dictionary['type']][-1]
+        crafting_dict["color"] = settings_dictionary[crafting_dict["category"]][crafting_dict["type"]][-1]
 
     # Random color if fail
     except:
-        crafting_dictionary['color'] = ""
+        crafting_dict["color"] = ""
 
     # Save cvar
-    ch.set_cvar('crafting_dict', dump_json(crafting_dictionary))
+    ch.set_cvar("crafting_dict", dump_json(crafting_dict))
+    crafting_dict = load_json(ch.get_cvar("crafting_dict"))
 
     result_string = []
 
     # Success counter
-    result_string.append(f"Successes: {success_counter.value}/{success_counter.max}")
+    result_string.append(f"Successes: {success_cc.value}/{success_cc.max}")
 
-    if f"{success_counter.value}/{success_counter.max}" == ch.cc_str('Crafting: Successes'):
-        pass
-    else:
-        result_string.append(ch.cc_str('Crafting: Successes'))
+    if f"{success_cc.value}/{success_cc.max}" != ch.cc_str("Crafting: Successes"):
+        result_string.append(ch.cc_str("Crafting: Successes"))
 
     # Failure counter
-    result_string.append(f"Failures: {failure_counter.value}/{failure_counter.max}")
+    result_string.append(f"Failures: {failure_cc.value}/{failure_cc.max}")
 
-    if f"{failure_counter.value}/{failure_counter.max}" == ch.cc_str('Crafting: Failures'):
-        pass
-    else:
-        result_string.append(ch.cc_str('Crafting: Failures'))
+    if f"{failure_cc.value}/{failure_cc.max}" != ch.cc_str("Crafting: Failures"):
+        result_string.append(ch.cc_str("Crafting: Failures"))
 
     try:
-        color = crafting_dictionary['color']
+        color = crafting_dict["color"]
 
     except:
-        color = ""
+        color = color
 
-    return [f"{name} ({ctx.author.display_name}) has restored their crafting progress for a {crafting_dictionary['name']}", "\n".join(result_string), hammer_img, color]
+
+    if money_back > 0:
+        result_string.append(f"\nYou have received a net gain of {money_back}gp")
+
+    elif money_back < 0:
+        result_string.append(f"\nYou have taken a net loss of {abs(money_back)}gp")
+
+    return f"{name} Has Restored Their Crafting Progress For a {crafting_dict['name']}", "\n".join(result_string), "https://raw.githubusercontent.com/Shadow-Draconic-Development/Avrae-Customizable-Crafting-System/refs/heads/main/Data/images/hammer.png", color
 
 
 # Main program
-output_list = main()
+title, f, thumb, color = main()
 
 
 </drac2>
--title "{{output_list[0]}}"
--f "{{output_list[1]}}"
--thumb "{{output_list[2]}}"
--color "{{output_list[3]}}"
--footer "!craft restore | Updated 8/21/23 | ShadowsStride"
+-title "{{title}}"
+-f "{{f}}"
+-thumb "{{thumb}}"
+-color "{{color}}"
+-footer "{{ctx.prefix}}craft restore | 4/5/26 | ShadowsStride"

@@ -17,7 +17,17 @@ Settings:
 ```json
 {
     "permanent": {
-        ["Level Requirement (int)", "DC (int)", "Nat1 Penalty (int)", "Nat20 Bonus (int)", "Total Successes (int)", "Total Failures Allowed (int)", "Cooldown In Seconds (int)", "Retail Item Cost in GP (int or float)", "Hex code (with or without #)"]
+        [
+            "Level Requirement (int)", 
+            "DC (int)", 
+            "Nat1 Penalty (int)", 
+            "Nat20 Bonus (int)", 
+            "Total Successes (int)", 
+            "Total Failures Allowed (int)", 
+            "Cooldown In Seconds (int)", 
+            "Retail Item Cost in GP (int or float)", 
+            "Hex code (with or without #)"
+            ]
     }
 }
 ```
@@ -37,7 +47,15 @@ Settings:
 ```json
 {
     "0": {
-        ["Level Requirement (int)", "DC (int)", "Nat1 Penalty (int)", "Nat20 Bonus (int)", "Total Successes (int)", "Total Failures Allowed (int)", "Cooldown In Seconds (int)", "Hex code (with or without #)"]
+        [
+            "Level Requirement (int)", 
+            "DC (int)", "Nat1 Penalty (int)", 
+            "Nat20 Bonus (int)", 
+            "Total Successes (int)", 
+            "Total Failures Allowed (int)", 
+            "Cooldown In Seconds (int)", 
+            "Hex code (with or without #)"
+            ]
     }
 }
 ```
@@ -63,7 +81,9 @@ Example:
 ### General Settings
 If you do not have the settings below, it does revert to default settings:
 
-`lfg_integration`: This is a setting that works with the [LFG Alias](https://avrae.io/dashboard/workshop/6493acfad4ff5357d7b1cb32) I have written. All this does, is it will display a message with the LFG that the character is currently crafting. Default: False
+`lfg_integration`: This is a setting that works with the [LFG Alias](https://avrae.io/dashboard/workshop/6493acfad4ff5357d7b1cb32) I have written. All this does, is it will display a message with the LFG that the character is currently crafting. 
+
+Default: False
 
 `pro_rate_refund`: Whether or not the character gets a prorated refund if they decide to stop a project early. The prorated refund is calculated as followed:
 
