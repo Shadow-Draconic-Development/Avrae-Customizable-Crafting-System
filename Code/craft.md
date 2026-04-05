@@ -1,4 +1,4 @@
-<h1>Crafting Alias<img align="right" src="./images/image.png" width="100px"></h1>
+<h1>Crafting Alias<img align="right" src="../Data/images/main.png" width="100px"></h1>
 
 Alias that handles the main functions of starting and continuing crafting sessions.
 

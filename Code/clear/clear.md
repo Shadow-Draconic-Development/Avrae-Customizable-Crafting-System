@@ -1,9 +1,6 @@
-<h1>Clear Subalias<img align="right" src="../images/fail.png" width="100px"></h1>
+<h1>Clear Subalias<img align="right" src="../../Data/images/fail.png" width="100px"></h1>
 
 Subalias that allows players to clear their crafting progress (most of the time when they finish an item)
-
-## Owner(s):
-- Seth Hartman (ShadowsStride)
 
 ## Help:
 `!craft clear`

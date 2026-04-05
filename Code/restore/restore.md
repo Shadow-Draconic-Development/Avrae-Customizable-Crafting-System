@@ -1,9 +1,6 @@
-<h1>Restore Subalias<img align="right" src="../images/hammer.png" width="100px"></h1>
+<h1>Restore Subalias<img align="right" src="../../Data/images/hammer.png" width="100px"></h1>
 
 Subalias that allows players to restore a cleared (uncompleted) item 
-
-## Owner(s):
-- Seth Hartman (ShadowsStride)
 
 ## Help:
 `!craft restore`
