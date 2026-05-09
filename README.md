@@ -1,4 +1,4 @@
-<h1>Organization Reputation Manager Redux<img align="right" src="./Data/images/main.png" width="100px"></h1>
+<h1>Customizable Crafting System<img align="right" src="./Data/images/main.png" width="100px"></h1>
 
 Crafting alias that allows players to craft both non-magical and magical items. This system is highly customizable, which allows the usage of server rules to dictate what can be crafted, where items can be crafted, how often items can be crafted, and how fast items can be crafted. Ultimately, it is up to server staff to determine the settings. I highly recommend viewing the main documentation on GitHub (link below).
 
